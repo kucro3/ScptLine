@@ -3,6 +3,7 @@ package org.kucro3.scptline;
 import java.util.Map;
 import java.util.HashMap;
 
+import org.kucro3.ref.RefObject;
 import org.kucro3.scptline.SLEnvironment.SLEnvState;
 
 public class SLDefinitionMap implements SLObject {
@@ -37,7 +38,7 @@ public class SLDefinitionMap implements SLObject {
 		return map.containsKey(name);
 	}
 	
-	private final Map<String, Object> map;
+	private final Map<String, RefObject> map;
 	
 	private final SLEnvironment env;
 }
