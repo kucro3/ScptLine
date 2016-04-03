@@ -19,6 +19,7 @@ public class SLEnvironment implements SLExceptionHandler {
 		this.collection = SLDictionaryFactory.newCollection(this);
 		this.definitions = new SLDefinitionMap(this);
 		this.initHandlers();
+		this.initVariable();
 		_idle();
 	}
 	
@@ -132,6 +133,11 @@ public class SLEnvironment implements SLExceptionHandler {
 		this.exceptionHandlers.put(SLEnvState.IDLE, this);
 		this.exceptionHandlers.put(SLEnvState.BOOTING, this);
 		this.exceptionHandlers.put(SLEnvState.EXECUTING, new SLOpStackExceptionHandler());
+	}
+	
+	private final void initVariable()
+	{
+		this.definitions.define("null", null).regConst("null");
 	}
 	
 	final Map<SLEnvState, SLExceptionHandler> exceptionHandlers = new HashMap<>();

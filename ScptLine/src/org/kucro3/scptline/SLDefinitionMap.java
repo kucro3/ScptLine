@@ -3,7 +3,7 @@ package org.kucro3.scptline;
 import java.util.Map;
 import java.util.HashMap;
 
-import org.kucro3.ref.RefObject;
+import org.kucro3.ref.*;
 import org.kucro3.scptline.SLEnvironment.SLEnvState;
 
 public class SLDefinitionMap implements SLObject {
@@ -19,15 +19,27 @@ public class SLDefinitionMap implements SLObject {
 		return env;
 	}
 	
-	public void define(String name, Object obj)
+	final void regConst(String name)
+	{
+		assert this.defined(name);
+		
+		Ref ref = this.getRef(name);
+		RefConst constant = new RefConst(ref, () ->
+			SLDefinitionException.newConstant(env, name)
+		);
+		this.map.put(name, constant);
+	}
+	
+	public SLDefinitionMap define(String name, Object obj)
 	{
 		if(requireCheck())
 			this.checkName(name);
 		this.checkDuplication(name);
 		map.put(name, new RefObject(wrap(obj)));
+		return this;
 	}
 	
-	public RefObject getRef(String name)
+	public Ref getRef(String name)
 	{
 		return map.get(name);
 	}
@@ -39,10 +51,10 @@ public class SLDefinitionMap implements SLObject {
 	
 	final Object get0(String name)
 	{
-		RefObject ref;
+		Ref ref;
 		if((ref = map.get(name)) == null)
 			return null;
-		return ref.ref;
+		return ref.get();
 	}
 	
 	static Object unwrap(Object obj)
@@ -61,10 +73,10 @@ public class SLDefinitionMap implements SLObject {
 	
 	public boolean set(String name, Object obj)
 	{
-		RefObject ref;
+		Ref ref;
 		if((ref = map.get(name)) == null)
 			return false;
-		ref.ref = wrap(obj);
+		ref.set(wrap(obj));
 		return true;
 	}
 	
@@ -82,9 +94,9 @@ public class SLDefinitionMap implements SLObject {
 		return obj;
 	}
 	
-	public RefObject requireRef(String name)
+	public Ref requireRef(String name)
 	{
-		RefObject ref;
+		Ref ref;
 		if((ref = getRef(name)) == null)
 			throw SLDefinitionException.newVarUndefined(env, name);
 		return ref;
@@ -133,6 +145,10 @@ public class SLDefinitionMap implements SLObject {
 	
 	public static final Object NULL = new Object();
 	
+	private final Map<String, Ref> map;
+	
+	private final SLEnvironment env;
+	
 	public static class SLDefinitionException extends SLException
 	{
 
@@ -174,16 +190,21 @@ public class SLDefinitionMap implements SLObject {
 					String.format(MESSAGE_ILLEGAL_NAME, name));
 		}
 		
+		public static SLDefinitionException newConstant(SLEnvironment env, String name)
+		{
+			throw new SLDefinitionException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_CONSTANT,
+					String.format(MESSAGE_CONSTANT, name));
+		}
+		
 		public static final String MESSAGE_UNDEFINED = "Undefined variable: %s";
 		
 		public static final String MESSAGE_DEFINITION_DUPLICATED = "Variable redefinition: %s";
 		
 		public static final String MESSAGE_ILLEGAL_NAME = "Illegal variable name: %s";
 		
+		public static final String MESSAGE_CONSTANT = "Constant variable: %s";
+		
 		public static final String DESCRIPTION = "An exception occurred in definition pool.";
 	}
-	
-	private final Map<String, RefObject> map;
-	
-	private final SLEnvironment env;
 }

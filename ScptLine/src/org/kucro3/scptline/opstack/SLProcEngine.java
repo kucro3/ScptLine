@@ -2,6 +2,7 @@ package org.kucro3.scptline.opstack;
 
 import java.util.EnumMap;
 
+import org.kucro3.fastinstanceof.InstanceProvider;
 import org.kucro3.scptline.InternalError;
 import org.kucro3.scptline.SLAbstractParser;
 import org.kucro3.scptline.SLEnvironment;
@@ -122,7 +123,19 @@ public class SLProcEngine extends SLHandler {
 					String.format(MESSAGE_ILLEGAL_ARGUMENT, p.getName(), v));
 		}
 		
+		public static SLProcEngineException newClassCast(SLEnvironment env,
+				Object obj, String dest)
+		{
+			return new SLProcEngineException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_CLASS_CAST,
+					String.format(MESSAGE_CLASS_CAST,
+							obj.getClass().getSimpleName(),
+							dest));
+		}
+		
 		public static final String MESSAGE_ILLEGAL_ARGUMENT = "Illegal Argument (%s): %s";
+		
+		public static final String MESSAGE_CLASS_CAST = "%s cannot be cast to %s";
 		
 		public static final String DESCRIPTION = "An exception occurred in proc engine(handler).";
 	}
@@ -151,6 +164,12 @@ public class SLProcEngine extends SLHandler {
 	
 	static interface ParamParsers
 	{
+		default Object parse(SLProcEngine self, int current, String[] line, int[] used,
+				Object reserved)
+		{
+			return parse(self, current, line, used);
+		}
+		
 		default Object parse(SLProcEngine self, int current, String[] line, int[] used)
 		{
 			return 0;
@@ -180,12 +199,19 @@ public class SLProcEngine extends SLHandler {
 		static class _TObject extends _LObject implements ParamParsers
 		{
 			@Override
-			public Object parse(SLProcEngine self, int current, String[] line, int[] used)
+			public Object parse(SLProcEngine self, int current, String[] line, int[] used,
+					Object reserved)
 			{
 				Object obj = super.parse(self, current, line, used);
 				clearCell(used);
-				//TODO instanceof
-				used[0] = 1;
+				try {
+					if(!InstanceProvider.getDefault().isInstance(obj, (String)reserved))
+						throw SLProcEngineException.newClassCast(self.env, obj,
+								(String)reserved);
+					used[0] = 1;
+				} catch (InstantiationException | IllegalAccessException e) {
+					InternalError.ShouldNotReachHere();
+				}
 				return obj;
 			}
 		}
