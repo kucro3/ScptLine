@@ -18,5 +18,17 @@ public class RefBoolean extends Ref {
 		return boolean.class;
 	}
 	
+	@Override
+	public Object get()
+	{
+		return ref;
+	}
+	
+	@Override
+	public void set(Object obj)
+	{
+		this.ref = (Boolean)obj;
+	}
+	
 	public boolean ref;
 }

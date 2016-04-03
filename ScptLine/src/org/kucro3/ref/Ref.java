@@ -11,6 +11,10 @@ public abstract class Ref {
 		return tRef;
 	}
 	
+	public abstract void set(Object obj);
+	
+	public abstract Object get();
+	
 	public abstract Class<?> getType();
 
 	private final int tRef;

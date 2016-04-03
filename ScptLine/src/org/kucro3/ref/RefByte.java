@@ -18,5 +18,17 @@ public class RefByte extends Ref {
 		return byte.class;
 	}
 	
+	@Override
+	public Object get()
+	{
+		return ref;
+	}
+	
+	@Override
+	public void set(Object obj)
+	{
+		this.ref = (Byte)obj;
+	}
+	
 	public byte ref;
 }

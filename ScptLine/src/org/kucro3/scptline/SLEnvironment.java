@@ -17,8 +17,14 @@ public class SLEnvironment implements SLExceptionHandler {
 		this.property = new SLProperty(this, ini);
 		this.opstack = new SLHandlerStack(this);
 		this.collection = SLDictionaryFactory.newCollection(this);
+		this.definitions = new SLDefinitionMap(this);
 		this.initHandlers();
 		_idle();
+	}
+	
+	public final SLDefinitionMap getVarMap()
+	{
+		return definitions;
 	}
 	
 	public final SLProperty getProperties()
@@ -129,6 +135,8 @@ public class SLEnvironment implements SLExceptionHandler {
 	}
 	
 	final Map<SLEnvState, SLExceptionHandler> exceptionHandlers = new HashMap<>();
+	
+	private final SLDefinitionMap definitions;
 	
 	private final SLDictionaryCollection collection;
 	
