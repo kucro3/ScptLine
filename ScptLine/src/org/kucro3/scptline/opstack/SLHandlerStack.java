@@ -1,5 +1,6 @@
 package org.kucro3.scptline.opstack;
 
+import org.kucro3.lambda.*;
 import org.kucro3.scptline.SLEnvironment;
 import org.kucro3.scptline.SLException;
 import org.kucro3.scptline.SLObject;
@@ -67,9 +68,36 @@ public class SLHandlerStack implements SLObject {
 	
 	public final void internalException(SLException e)
 	{
+		execute((handler) -> {
+			handler._internalException(this, e);
+			return (Void)null;
+		});
+	}
+	
+	public final void intpoint()
+	{
+		execute((handler) -> {
+			handler._intpoint(this);
+			return (Void)null;
+		});
+	}
+	
+	public final String[] preprocess(String line)
+	{
+		return execute((handler) -> handler._preprocess(this, line));
+	}
+	
+	public final boolean process(String[] line)
+	{
+		return execute((handler) -> handler._process(this, line));
+	}
+	
+	final <R> R execute(LambdaObjectSP<R, SLHandler> lambda)
+	{
 		SLHandler handler;
 		if((handler = peek()) != null)
-			handler._internalException(this, e);
+			return lambda.function(handler);
+		throw SLHandlerStackException.newStackUnderflow(owner);
 	}
 	
 	private int pointer = 0;

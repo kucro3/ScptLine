@@ -3,6 +3,7 @@ package org.kucro3.scptline.opstack;
 import java.util.EnumMap;
 
 import org.kucro3.fastinstanceof.InstanceProvider;
+import org.kucro3.ref.Ref;
 import org.kucro3.scptline.InternalError;
 import org.kucro3.scptline.SLAbstractParser;
 import org.kucro3.scptline.SLEnvironment;
@@ -61,6 +62,18 @@ public class SLProcEngine extends SLHandler {
 	{
 		checkCaller(env);
 		return true;
+	}
+	
+	@Override
+	public String[] preprocess(SLEnvironment env, String line)
+	{
+		
+	}
+	
+	@Override
+	public boolean process(SLEnvironment env, String[] line)
+	{
+		
 	}
 	
 	final void clearCell()
@@ -165,14 +178,14 @@ public class SLProcEngine extends SLHandler {
 	static interface ParamParsers
 	{
 		default Object parse(SLProcEngine self, int current, String[] line, int[] used,
-				Object reserved)
+				String variable)
 		{
 			return parse(self, current, line, used);
 		}
 		
 		default Object parse(SLProcEngine self, int current, String[] line, int[] used)
 		{
-			return 0;
+			return null;
 		}
 		
 		static class __Byte implements ParamParsers
@@ -189,6 +202,32 @@ public class SLProcEngine extends SLHandler {
 		
 		static class _LObject implements ParamParsers
 		{
+			@Override
+			public Object parse(SLProcEngine self, int current, String[] line, int[] used)
+			{
+				Ref ref;
+				Object obj = null;
+				String var = line[current];
+				switch(var.charAt(0))
+				{
+				case '$':
+					var = var.substring(1);
+					ref = self.env.getVarMap().requireRef(var);
+					obj = ref.get();
+					break;
+					
+				default:
+					throw SLProcEngineException.newIllegalArgument(self.env,
+							override(), var);
+				}
+				used[0] = 1;
+				return obj;
+			}
+			
+			protected SLMethodParam override()
+			{
+				return SLMethodParam.L_OBJECT;
+			}
 		}
 		
 		static class _LString implements ParamParsers
@@ -200,19 +239,24 @@ public class SLProcEngine extends SLHandler {
 		{
 			@Override
 			public Object parse(SLProcEngine self, int current, String[] line, int[] used,
-					Object reserved)
+					String variable)
 			{
 				Object obj = super.parse(self, current, line, used);
 				clearCell(used);
 				try {
-					if(!InstanceProvider.getDefault().isInstance(obj, (String)reserved))
-						throw SLProcEngineException.newClassCast(self.env, obj,
-								(String)reserved);
+					if(!InstanceProvider.getDefault().isInstance(obj, variable))
+						throw SLProcEngineException.newClassCast(self.env, obj, variable);
 					used[0] = 1;
 				} catch (InstantiationException | IllegalAccessException e) {
 					InternalError.ShouldNotReachHere();
 				}
 				return obj;
+			}
+			
+			@Override
+			protected SLMethodParam override()
+			{
+				return SLMethodParam.T_OBJECT;
 			}
 		}
 		

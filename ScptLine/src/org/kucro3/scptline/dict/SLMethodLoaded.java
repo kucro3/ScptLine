@@ -8,6 +8,7 @@ import org.kucro3.scptline.SLEnvironment;
 import org.kucro3.scptline.SLException;
 import org.kucro3.scptline.dict.SLDictionaryLoader.SLExportedInfo;
 import org.kucro3.scptline.opstack.SLMethodParam;
+import org.kucro3.scptline.opstack.SLMethodParam.SLResolvedParam;
 
 public class SLMethodLoaded extends SLExported implements SLDictionaryObject {
 	SLMethodLoaded(SLEnvironment env, SLDictionaryLoaded dict, SLDictionary reference,
@@ -36,12 +37,12 @@ public class SLMethodLoaded extends SLExported implements SLDictionaryObject {
 		this.params = params(env, metadata);
 	}
 	
-	static SLMethodParam[] params(SLEnvironment env, SLExportedInfo metadata)
+	static SLResolvedParam[] params(SLEnvironment env, SLExportedInfo metadata)
 	{
 		String[] targs = metadata.targs();
-		SLMethodParam[] params = new SLMethodParam[targs.length];
+		SLResolvedParam[] params = new SLResolvedParam[targs.length];
 		for(int i = 0; i < params.length; i++)
-			if((params[i] = SLMethodParam.getParam(targs[i])) == null)
+			if((params[i] = SLMethodParam.resolveWithVariable(targs[i])) == null)
 				throw SLMethodException.newUnknownParamType(env, targs[i]);
 		return params;
 	}
@@ -100,7 +101,7 @@ public class SLMethodLoaded extends SLExported implements SLDictionaryObject {
 		return method.getReturnType();
 	}
 	
-	public SLMethodParam[] getResolvedParams()
+	public SLResolvedParam[] getResolvedParams()
 	{
 		return params;
 	}
@@ -121,7 +122,7 @@ public class SLMethodLoaded extends SLExported implements SLDictionaryObject {
 	
 	private final String name;
 	
-	private final SLMethodParam[] params;
+	private final SLResolvedParam[] params;
 	
 	Method method;
 	

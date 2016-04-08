@@ -4,7 +4,6 @@ import java.util.Map;
 import java.util.HashMap;
 
 public enum SLMethodParam {
-	CHAR("char"),
 	BYTE("byte"),
 	
 	N_SHORT("nshort"),
@@ -36,6 +35,28 @@ public enum SLMethodParam {
 		return map.get(t);
 	}
 	
+	public static SLResolvedParam resolve(String t)
+	{
+		SLMethodParam param;
+		if((param = getParam(t)) == null)
+			return null;
+		return new SLResolvedParam(param);
+	}
+	
+	public static SLResolvedParam resolveWithVariable(String t)
+	{
+		String[] split;
+		SLMethodParam param;
+		
+		split = t.split(":", 2);
+		String // ->
+			sparam = split[0],
+			svariable = split.length == 2 ? split[1] : null;
+		if((param = getParam(sparam)) == null)
+			return null;
+		return new SLResolvedParam(param, svariable);
+	}
+	
 	public final String getName()
 	{
 		return name;
@@ -44,4 +65,37 @@ public enum SLMethodParam {
 	private final String name;
 
 	private static Map<String, SLMethodParam> map;
+	
+	public static class SLResolvedParam
+	{
+		SLResolvedParam(SLMethodParam param)
+		{
+			this(param, null);
+		}
+		
+		SLResolvedParam(SLMethodParam param, String variable)
+		{
+			this.param = param;
+			this.variable = variable;
+		}
+		
+		public final SLMethodParam getType()
+		{
+			return param;
+		}
+		
+		public final String getName()
+		{
+			return param.getName();
+		}
+		
+		public final String getVariable()
+		{
+			return variable;
+		}
+		
+		private final String variable;
+		
+		private final SLMethodParam param;
+	}
 }
