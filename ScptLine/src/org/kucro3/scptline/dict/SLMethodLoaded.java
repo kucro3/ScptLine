@@ -106,8 +106,7 @@ public class SLMethodLoaded extends SLExported implements SLDictionaryObject {
 		return params;
 	}
 	
-	public Object invoke(Object... args) throws IllegalAccessException,
-			IllegalArgumentException, InvocationTargetException
+	public Object invoke(Object... args)
 	{
 		try {
 			return method.invoke(reference, args);

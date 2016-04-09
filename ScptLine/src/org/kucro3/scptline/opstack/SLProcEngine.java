@@ -9,6 +9,8 @@ import org.kucro3.scptline.SLAbstractParser;
 import org.kucro3.scptline.SLEnvironment;
 import org.kucro3.scptline.SLException;
 import org.kucro3.scptline.anno.SLLimited;
+import org.kucro3.scptline.dict.SLMethodLoaded;
+import org.kucro3.scptline.opstack.SLMethodParam.SLResolvedParam;
 import org.kucro3.scptline.opstack.SLProcEngine.ParamParsers.*;
 
 @SLLimited // Limited runtime object, caller env sensitive
@@ -67,13 +69,79 @@ public class SLProcEngine extends SLHandler {
 	@Override
 	public String[] preprocess(SLEnvironment env, String line)
 	{
-		
+		char c;
+		String[] result = null;
+		String[] fsplit = line.split("", 2);
+		if(!Character.isLetter(c = line.charAt(0)))
+			return new String[] {
+					fsplit[0].substring(1),
+					fsplit.length > 1 ? fsplit[1] : "",
+					new String(new char[] {c})
+				};
+		else
+			result = new String[] {
+					fsplit[0],
+					fsplit.length > 1 ? fsplit[1] : ""};
+		return result;
 	}
 	
 	@Override
 	public boolean process(SLEnvironment env, String[] line)
 	{
+		if(line.length > 1)
+		{
+			Prefix prefix;
+			char c = line[1].charAt(0);
+			if((prefix = Prefix.index(c)) != null)
+				switch(prefix.handle(this, line))
+				{
+				case Prefix.ABORTED:
+					return false;
+				case Prefix.DELEGATED:
+					return true;
+				case Prefix.PASSED:
+					break;
+				default:
+					InternalError.ShouldNotReachHere();
+				}
+			else
+				throw SLProcEngineException.newInvalidPrefix(env,
+						new String(new char[] {c}));
+		}
+		String // ->
+			insn = line[0],
+			arg = line[1];
+		String[] // ->
+				args = arg.split(" "),
+				pInsn = insn.split(":");
 		
+		String pInsnDict = null, pInsnStr;
+		if(pInsn.length == 1)
+			pInsnStr = pInsn[0];
+		else
+		{
+			pInsnStr = pInsn[1];
+			pInsnDict = pInsn[0];
+		}
+		SLMethodLoaded mloaded = env.getDictionaries().requireMethod(pInsnDict, pInsnStr);
+		SLResolvedParam[] params = mloaded.getResolvedParams();
+		
+		int current = 0;
+		SLResolvedParam param;
+		ParamParsers parser;
+		Object[] objs = new Object[params.length + 1];
+		for(int i = 0; i < params.length; i++)
+		{
+			param = params[i];
+			parser = parsers.get(param.getType());
+			clearCell();
+			objs[i + 1] = parser.parse(this, current, args, cell);
+			current += cell[0];
+		}
+		objs[0] = env;
+		
+		mloaded.invoke(objs);
+		return true;
 	}
 	
 	final void clearCell()
@@ -145,6 +213,17 @@ public class SLProcEngine extends SLHandler {
 							obj.getClass().getSimpleName(),
 							dest));
 		}
+		
+		public static SLProcEngineException newInvalidPrefix(SLEnvironment env,
+				String prefix)
+		{
+			return new SLProcEngineException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_INVALID_PREFIX,
+					String.format(MESSAGE_INVALID_PREFIX,
+							prefix));
+		}
+		
+		public static final String MESSAGE_INVALID_PREFIX = "Invalid or not prefix: %s";
 		
 		public static final String MESSAGE_ILLEGAL_ARGUMENT = "Illegal Argument (%s): %s";
 		
@@ -319,5 +398,47 @@ public class SLProcEngine extends SLHandler {
 				return obj;
 			}
 		}
+	}
+	
+	static abstract class Prefix
+	{
+		Prefix(char c)
+		{
+			if(c < 0 || c > 127)
+				return;
+			prefixes[c] = this;
+		}
+		
+		abstract int handle(SLProcEngine self, String[] preprocessed);
+		
+		public static class _0x21 /* ! */ extends Prefix
+		{
+			_0x21()
+			{
+				super('!');
+			}
+			
+			int handle(SLProcEngine self, String[] preprocessed)
+			{
+				if(!self.env.getRegister().pcBool())
+					return ABORTED;
+				return PASSED;
+			}
+		}
+		
+		public static Prefix index(char c)
+		{
+			if(c < 0 || c > 127)
+				return null;
+			return prefixes[c];
+		}
+		
+		private static final Prefix[] prefixes = new Prefix[128];
+		
+		public static final int ABORTED = 0;
+		
+		public static final int DELEGATED = 2;
+		
+		public static final int PASSED = 1;
 	}
 }
