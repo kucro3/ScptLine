@@ -18,6 +18,8 @@ public class SLEnvironment implements SLExceptionHandler {
 		this.opstack = new SLHandlerStack(this);
 		this.collection = SLDictionaryFactory.newCollection(this);
 		this.definitions = new SLDefinitionMap(this);
+		this.intpointEnabled = property.getOrDefault(property::getBoolean,
+				SLProperty.PROP_ENV_INTERRUPT_POINT_ENABLED, false);
 		this.initHandlers();
 		this.initVariable();
 		_idle();
@@ -53,12 +55,13 @@ public class SLEnvironment implements SLExceptionHandler {
 	{
 		if(env != this)
 			InternalError.IntersectedFunctionCall();
-		//TODO handle uncaught exceptions
+		e.printStackTrace();
 		return true;
 	}
 	
 	final void __state(SLEnvState state)
 	{
+		System.out.println("State changed: " + state.name());
 		this.lastState = this.state;
 		this.state = state;
 	}
@@ -108,6 +111,28 @@ public class SLEnvironment implements SLExceptionHandler {
 		return lastState;
 	}
 	
+	public boolean execute(String line, int linenumber)
+	{
+		try {
+			_executing();
+			String[] lines = opstack.preprocess(line);
+			if(lines == null)
+				return false;
+			boolean r = opstack.process(lines);
+			_intpoint();
+			if(this.intpointEnabled)
+				opstack.intpoint();
+			return r;
+		} catch (SLException e) {
+			this.exception(e);
+		} catch (Exception e) {
+			this.uncaughtException(e);
+		} finally {
+			_idle();
+		}
+		return false;
+	}
+	
 	public final void exception(SLException e)
 	{
 		_exception();
@@ -155,6 +180,8 @@ public class SLEnvironment implements SLExceptionHandler {
 	volatile SLEnvState lastState;
 	
 	volatile SLEnvState state;
+	
+	private final boolean intpointEnabled;
 	
 	public static enum SLEnvState
 	{

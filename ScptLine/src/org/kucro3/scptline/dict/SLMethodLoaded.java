@@ -109,7 +109,7 @@ public class SLMethodLoaded extends SLExported implements SLDictionaryObject {
 	public Object invoke(Object... args)
 	{
 		try {
-			return method.invoke(reference, args);
+			return method.invoke(reference.get(), args);
 		} catch (IllegalAccessException e) {
 			throw SLMethodException.newIllegalAccess(env, e);
 		} catch (IllegalArgumentException e) {

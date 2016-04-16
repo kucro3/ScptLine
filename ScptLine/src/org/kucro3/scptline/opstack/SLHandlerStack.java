@@ -43,6 +43,7 @@ public class SLHandlerStack implements SLObject {
 	
 	public SLHandler peek()
 	{
+		checkUnderflow();
 		return stack[pointer - 1];
 	}
 	
@@ -62,7 +63,7 @@ public class SLHandlerStack implements SLObject {
 	
 	private final void checkUnderflow()
 	{
-		if(pointer == 0)
+		if(pointer < 1)
 			throw SLHandlerStackException.newStackUnderflow(owner);
 	}
 	

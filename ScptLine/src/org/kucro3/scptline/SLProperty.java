@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.*;
 
 import org.kucro3.ini.*;
+import org.kucro3.lambda.LambdaObjectSP;
 
 public class SLProperty implements SLObject {
 	public SLProperty(SLEnvironment env)
@@ -45,39 +46,55 @@ public class SLProperty implements SLObject {
 		return result;
 	}
 	
-	public boolean getBoolean(String key)
+	public Boolean getBoolean(String key)
 	{
-		return parser.parseBoolean(getNonnull(key));
+		return get0(parser::parseBoolean, key);
 	}
 	
-	public byte getByte(String key)
+	public Byte getByte(String key)
 	{
-		return parser.parseByte(getNonnull(key));
+		return get0(parser::parseByte, key);
 	}
 	
-	public short getShort(String key)
+	public Short getShort(String key)
 	{
-		return parser.parseShort(getNonnull(key));
+		return get0(parser::parseShort, key);
 	}
 	
-	public int getInt(String key)
+	public Integer getInt(String key)
 	{
-		return parser.parseInt(getNonnull(key));
+		return get0(parser::parseInt, key);
 	}
 	
-	public float getFloat(String key)
+	public Float getFloat(String key)
 	{
-		return parser.parseFloat(getNonnull(key));
+		return get0(parser::parseFloat, key);
 	}
 	
-	public long getLong(String key)
+	public Long getLong(String key)
 	{
-		return parser.parseLong(getNonnull(key));
+		return get0(parser::parseLong, key);
 	}
 	
-	public double getDouble(String key)
+	public Double getDouble(String key)
 	{
-		return parser.parseDouble(getNonnull(key));
+		return get0(parser::parseDouble, key);
+	}
+	
+	final <R> R get0(LambdaObjectSP<R, String> function, String key)
+	{
+		return get0(function, key, false);
+	}
+	
+	final <R> R get0(LambdaObjectSP<R, String> function, String key, boolean ex)
+	{
+		String str;
+		if((str = properties.get(key)) == null)
+			if(!ex)
+				return null;
+			else
+				throw SLPropertyException.newKeyNotFound(env, key);
+		return function.function(str);
 	}
 	
 	public String put(String key, Object obj)
@@ -94,7 +111,7 @@ public class SLProperty implements SLObject {
 	
 	public int getHandlerStackSize()
 	{
-		return getInt(PROP_ENV_HANDLER_STACK_SIZE);
+		return get0(parser::parseInt, PROP_ENV_HANDLER_STACK_SIZE, true);
 	}
 	
 	@Override
@@ -103,11 +120,34 @@ public class SLProperty implements SLObject {
 		return env;
 	}
 	
+	public <R> R get(LambdaObjectSP<R, String> function, String key)
+	{
+		return function.function(key);
+	}
+	
+	public <R> R getOrDefault(LambdaObjectSP<R, String> function, String key, R v)
+	{
+		R r;
+		if((r = function.function(key)) == null)
+			return v;
+		return r;
+	}
+	
+	public <R> R getOrSet(LambdaObjectSP<R, String> function, String key, R v)
+	{
+		R r;
+		if((r = function.function(key)) == null)
+			put(key, r = v);
+		return r;
+	}
+	
 	private final SLEnvironment env;
 	
 	public static final String SECTION_OPTIONS = "Options";
 	
-	public static final String PROP_ENV_HANDLER_STACK_SIZE = "slenv.opstack_size";
+	public static final String PROP_ENV_HANDLER_STACK_SIZE = "slenv.init.opstack_size";
+	
+	public static final String PROP_ENV_INTERRUPT_POINT_ENABLED = "slenv.init.intpoint.bool";
 	
 	private final Map<String, String> properties = new HashMap<>();
 	
