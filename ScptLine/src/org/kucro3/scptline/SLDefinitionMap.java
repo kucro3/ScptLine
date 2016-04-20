@@ -3,6 +3,7 @@ package org.kucro3.scptline;
 import java.util.Map;
 import java.util.HashMap;
 
+import org.kucro3.lambda.LambdaObject;
 import org.kucro3.ref.*;
 import org.kucro3.scptline.SLEnvironment.SLEnvState;
 
@@ -17,6 +18,14 @@ public class SLDefinitionMap implements SLObject {
 	public final SLEnvironment getEnv()
 	{
 		return env;
+	}
+	
+	final <T> void defineVirtual(String name, LambdaObject<T> func)
+	{
+		this.checkDuplication(name);
+		this.map.put(name, new RefVirtual<>(func, () ->
+			SLDefinitionException.newConstant(env, name))
+		);
 	}
 	
 	final void regConst(String name)

@@ -40,4 +40,9 @@ public class SLRegisterRestricted extends SLRegister {
 	{
 		return _getObj3();
 	}
+	
+	public void ret(Object obj)
+	{
+		_setObj3(obj);
+	}
 }

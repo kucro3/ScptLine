@@ -147,7 +147,9 @@ public class SLProperty implements SLObject {
 	
 	public static final String PROP_ENV_HANDLER_STACK_SIZE = "slenv.init.opstack_size";
 	
-	public static final String PROP_ENV_INTERRUPT_POINT_ENABLED = "slenv.init.intpoint.bool";
+	public static final String PROP_ENV_INTERRUPT_POINT_ENABLED = "slenv.init.intpoint_bool";
+	
+	public static final String PROP_ENV_INLINE_DICT_ENABLED = "slenv.init.inline_dict";
 	
 	private final Map<String, String> properties = new HashMap<>();
 	

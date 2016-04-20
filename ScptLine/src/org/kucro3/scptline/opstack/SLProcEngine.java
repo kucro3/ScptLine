@@ -32,6 +32,12 @@ public class SLProcEngine extends SLHandler {
 	}
 	
 	@Override
+	public void internalException(SLEnvironment env, SLException e)
+	{
+		e.printStackTrace();
+	}
+	
+	@Override
 	protected final boolean ppInternalException(SLEnvironment env, SLException e)
 	{
 		checkCaller(env);
@@ -145,7 +151,9 @@ public class SLProcEngine extends SLHandler {
 		}
 		objs[0] = env;
 		
-		mloaded.invoke(objs);
+		Object rt = mloaded.invoke(objs);
+		if(mloaded.getReturnType() != Void.class)
+			env.getRegister().ret(rt);
 		return true;
 	}
 	
@@ -300,6 +308,10 @@ public class SLProcEngine extends SLHandler {
 					obj = ref.get();
 					break;
 					
+				case '%':
+					//reg
+					break;
+					
 				default:
 					throw SLProcEngineException.newIllegalArgument(self.env,
 							override(), var);
@@ -316,7 +328,64 @@ public class SLProcEngine extends SLHandler {
 		
 		static class _LString implements ParamParsers
 		{
+			static final int CONVERTING = 1;
 			
+			static final int NORMAL = 0;
+			
+			@Override
+			public Object parse(SLProcEngine self, int current, String[] line, int[] used)
+			{
+				int count = 1, status;
+				String str = line[current];
+				try {
+					if(!(str = str.trim()).startsWith("\""))
+						return str;
+					else if(current + 1 == line.length)
+						return str;
+					else;
+					
+					int i;
+					StringBuilder sb = new StringBuilder(str.substring(1));
+					for(status = NORMAL; current + count < line.length; count++)
+						for(str = line[current + count], i = 0, sb.append(" ");
+								i < str.length();
+								i++)
+							switch(status)
+							{
+							case NORMAL:
+								char c = str.charAt(i);
+								if(str.charAt(i) == '\\')
+									status = CONVERTING;
+								else if(str.charAt(i) == '"') // end
+									return sb.toString();
+								else
+									sb.append(c);
+								break;
+								
+							case CONVERTING:
+								try {
+									char p = str.charAt(i);
+									switch(p)
+									{
+									case '\\': sb.append('\\'); break;
+									case '"': sb.append('"'); break;
+									case 't': sb.append('\t'); break;
+									case 'n': sb.append('\n'); break;
+									default: sb.append("\\").append(p);
+									}
+								} finally {
+									status = NORMAL;
+								}
+								break;
+								
+							default:
+								InternalError.ShouldNotReachHere();
+							}
+					return sb.toString();
+				} finally {
+					used[0] = count;
+				}
+			}
 		}
 		
 		static class _TObject extends _LObject implements ParamParsers

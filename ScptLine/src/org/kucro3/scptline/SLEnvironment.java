@@ -1,11 +1,18 @@
 package org.kucro3.scptline;
 
+import java.io.File;
+import java.net.URL;
 import java.util.Map;
 import java.util.HashMap;
 
 import org.kucro3.ini.*;
+import org.kucro3.scptline.anno.SLExport;
+import org.kucro3.scptline.dict.SLDictionary;
 import org.kucro3.scptline.dict.SLDictionaryCollection;
 import org.kucro3.scptline.dict.SLDictionaryFactory;
+import org.kucro3.scptline.dict.SLDictionaryLoaded;
+import org.kucro3.scptline.dict.SLDictionaryLoader;
+import org.kucro3.scptline.dict.SLMain;
 import org.kucro3.scptline.opstack.SLHandler;
 import org.kucro3.scptline.opstack.SLHandlerStack;
 
@@ -20,9 +27,22 @@ public class SLEnvironment implements SLExceptionHandler {
 		this.definitions = new SLDefinitionMap(this);
 		this.intpointEnabled = property.getOrDefault(property::getBoolean,
 				SLProperty.PROP_ENV_INTERRUPT_POINT_ENABLED, false);
+		this.inlineDictEnabled = property.getOrDefault(property::getBoolean, 
+				SLProperty.PROP_ENV_INLINE_DICT_ENABLED, true);
 		this.initHandlers();
 		this.initVariable();
+		this.initInlineDict();
 		_idle();
+	}
+	
+	public final boolean isBooting()
+	{
+		return state == SLEnvState.BOOTING;
+	}
+	
+	public final boolean isLoadingInline()
+	{
+		return (state == SLEnvState.LOADING) && (lastState == SLEnvState.BOOTING);
 	}
 	
 	public final SLDefinitionMap getVarMap()
@@ -61,7 +81,6 @@ public class SLEnvironment implements SLExceptionHandler {
 	
 	final void __state(SLEnvState state)
 	{
-		System.out.println("State changed: " + state.name());
 		this.lastState = this.state;
 		this.state = state;
 	}
@@ -111,22 +130,63 @@ public class SLEnvironment implements SLExceptionHandler {
 		return lastState;
 	}
 	
+	public SLDictionaryLoaded load(File file)
+	{
+		return load0(SLDictionaryFactory::load, file);
+	}
+	
+	public SLDictionaryLoaded load(URL url)
+	{
+		return load0(SLDictionaryFactory::load, url);
+	}
+	
+	public SLDictionaryLoaded load(IniProfile ini)
+	{
+		return load0(SLDictionaryFactory::load, ini);
+	}
+	
+	public SLDictionaryLoaded load(Class<?> clz)
+	{
+		IniProfile profile = new IniProfile();
+		IniSection section = profile.createSection(SLDictionaryLoader.SECTION_MAIN);
+		section.setValue(SLDictionaryLoader.KEY_MAIN_CLASS_IN_SECTION_MAIN,
+				clz.getTypeName());
+		SLDictionaryLoaded loaded = load0(SLDictionaryFactory::load, profile);
+		if(loaded == null)
+			return null;
+		SLDictionaryFactory.bind(collection, loaded);
+		return loaded;
+	}
+	
+	public void execute(String... lines)
+	{
+		for(int i = 0; i < lines.length; i++)
+			execute(lines[i], i + 1);
+	}
+	
+	public boolean execute(String line)
+	{
+		return execute(line, 1);
+	}
+	
 	public boolean execute(String line, int linenumber)
 	{
 		try {
-			_executing();
-			String[] lines = opstack.preprocess(line);
-			if(lines == null)
-				return false;
-			boolean r = opstack.process(lines);
-			_intpoint();
-			if(this.intpointEnabled)
-				opstack.intpoint();
-			return r;
-		} catch (SLException e) {
-			this.exception(e);
-		} catch (Exception e) {
-			this.uncaughtException(e);
+			try {
+				_executing();
+				String[] lines = opstack.preprocess(line);
+				if(lines == null)
+					return false;
+				boolean r = opstack.process(lines);
+				_intpoint();
+				if(this.intpointEnabled)
+					opstack.intpoint();
+				return r;
+			} catch (SLException e) {
+				this.exception(e);
+			} catch (Exception e) {
+				this.uncaughtException(e);
+			}
 		} finally {
 			_idle();
 		}
@@ -135,22 +195,25 @@ public class SLEnvironment implements SLExceptionHandler {
 	
 	public final void exception(SLException e)
 	{
-		_exception();
 		try {
+			_exception();
 			SLExceptionHandler handler;
-			if((handler = exceptionHandlers.get(getLastState())) == null)
+			if(exceptionHandlers == null
+					|| (handler = exceptionHandlers.get(getLastState())) == null)
 				uncaughtException(e);
-			if(!handler.handle(this, e))
+			else if(!handler.handle(this, e))
 				uncaughtException(e);
 		} catch (Exception e0) {
 			uncaughtException(e0);
+		} finally {
+			__state_last();
 		}
-		__state_last();
 	}
 	
 	final void uncaughtException(Exception e)
 	{
 		// TODO handle all the uncaught exceptions
+		e.printStackTrace();
 	}
 	
 	private final void initHandlers()
@@ -163,6 +226,36 @@ public class SLEnvironment implements SLExceptionHandler {
 	private final void initVariable()
 	{
 		this.definitions.define("null", null).regConst("null");
+		this.definitions.define("env", this).regConst("env");
+		this.definitions.defineVirtual("env_state", this::getState);
+		this.definitions.defineVirtual("env_laststate", this::getLastState);
+		this.definitions.defineVirtual("current_proc", opstack::peek);
+		this.definitions.defineVirtual("systime_ms", System::currentTimeMillis);
+		this.definitions.defineVirtual("systime_ns", System::nanoTime);
+	}
+	
+	private final void initInlineDict()
+	{
+		if(this.inlineDictEnabled)
+			this.load(SLInlineDict.class);
+	}
+	
+	private final <T> SLDictionaryLoaded load0(LambdaLoading<T> lambda, T v)
+	{
+		SLEnvState last = state;
+		try {
+			try {
+				_loading();
+				return lambda.function(this, v);
+			} catch (SLException e) {
+				this.exception(e);
+			} catch (Exception e) {
+				this.uncaughtException(e);
+			}
+		} finally {
+			__state(last);
+		}
+		return null;
 	}
 	
 	final Map<SLEnvState, SLExceptionHandler> exceptionHandlers = new HashMap<>();
@@ -183,6 +276,8 @@ public class SLEnvironment implements SLExceptionHandler {
 	
 	private final boolean intpointEnabled;
 	
+	private final boolean inlineDictEnabled;
+	
 	public static enum SLEnvState
 	{
 		BOOTING,
@@ -191,6 +286,11 @@ public class SLEnvironment implements SLExceptionHandler {
 		EXECUTING,
 		INTPOINT_CALLBACK,
 		FAILURE_CALLBACK;
+	}
+	
+	interface LambdaLoading<T>
+	{
+		public abstract SLDictionaryLoaded function(SLEnvironment env, T t);
 	}
 	
 	private final class SLOpStackExceptionHandler implements SLExceptionHandler
@@ -206,6 +306,16 @@ public class SLEnvironment implements SLExceptionHandler {
 			if(handler == null)
 				return false;
 			return handler.handle(SLEnvironment.this, e);
+		}
+	}
+	
+	@SLExport(name = "")
+	public static class SLInlineDict implements SLMain, SLDictionary
+	{
+		@Override
+		public SLDictionary onLoad(SLEnvironment env, Object reserved) 
+		{
+			return this;
 		}
 	}
 }
