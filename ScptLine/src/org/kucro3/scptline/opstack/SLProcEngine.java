@@ -83,7 +83,7 @@ public class SLProcEngine extends SLHandler {
 		char c;
 		String[] result = null;
 		String[] fsplit = line.split(" ", 2);
-		if(!Character.isLetter(c = line.charAt(0)))
+		if(!Character.isLetter(c = line.charAt(0)) && c != ':')
 			return new String[] {
 					fsplit[0].substring(1),
 					fsplit.length > 1 ? fsplit[1] : "",
@@ -146,7 +146,7 @@ public class SLProcEngine extends SLHandler {
 			param = params[i];
 			parser = parsers.get(param.getType());
 			clearCell();
-			objs[i + 1] = parser.parse(this, current, args, cell);
+			objs[i + 1] = parser.parse(this, current, args, cell, param.getVariable());
 			current += cell[0];
 		}
 		objs[0] = env;
@@ -178,6 +178,7 @@ public class SLProcEngine extends SLHandler {
 		map.put(SLMethodParam.N_LONG, new _NLong());
 		map.put(SLMethodParam.N_SHORT, new _NShort());
 		map.put(SLMethodParam.T_OBJECT, new _TObject());
+		map.put(SLMethodParam.V_ARGS, new _VArgs());
 		parsers = map;
 	}
 	
@@ -223,7 +224,7 @@ public class SLProcEngine extends SLHandler {
 			return new SLProcEngineException(env, SLExceptionLevel.INTERRUPT,
 					MESSAGE_CLASS_CAST,
 					String.format(MESSAGE_CLASS_CAST,
-							obj.getClass().getSimpleName(),
+							obj.getClass().getCanonicalName(),
 							dest));
 		}
 		
@@ -470,6 +471,18 @@ public class SLProcEngine extends SLHandler {
 						.parseShort(line[current]);
 				used[0] = 1;
 				return obj;
+			}
+		}
+		
+		static class _VArgs implements ParamParsers
+		{
+			@Override
+			public Object parse(SLProcEngine self, int current, String[] line, int[] used)
+			{
+				String[] str = new String[line.length];
+				for(int i = 0; current < line.length; current++, i++)
+					str[i] = line[current];
+				return str;
 			}
 		}
 	}

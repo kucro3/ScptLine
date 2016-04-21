@@ -18,7 +18,13 @@ public class Main {
 			env.load(Test.class);
 			env.getHandlerStack().add(new SLProcEngine(env));
 			env.execute(new String[] {
-				"print \"Hello world!\"aa"
+				"printobj $env",
+				"printobj $env_state",
+				"printobj $env_laststate",
+				"printobj $systime_ms",
+				"print \"Hello world!\"",
+				"printobj $ret",
+				":var"
 			});
 		} finally {
 		}
@@ -27,16 +33,24 @@ public class Main {
 	@SLExport(name = "Test")
 	public static class Test implements SLMain, SLDictionary
 	{
-		@SLExport(name = "test", targs = {"nint", "nint", "nint"})
-		public void test(SLEnvironment env, int i, int j, int k)
+		@SLExport(name = "printobj", targs = {"lobj"})
+		public void printobj(SLEnvironment env, Object obj)
 		{
-			System.out.println("Hello world" + i + j + k);
+			System.out.println(obj);
 		}
 		
 		@SLExport(name = "print", targs = {"lstr"})
-		public void print(SLEnvironment env, String s)
+		public Object print(SLEnvironment env, String s)
 		{
 			System.out.print(s);
+			return s;
+		}
+		
+		@SLExport(name = "println", targs = {"vargs"})
+		public void println(SLEnvironment env, String[] strs)
+		{
+			for(String str : strs)
+				System.out.println(str);
 		}
 		
 		@Override

@@ -227,6 +227,7 @@ public class SLEnvironment implements SLExceptionHandler {
 	{
 		this.definitions.define("null", null).regConst("null");
 		this.definitions.define("env", this).regConst("env");
+		this.definitions.defineVirtual("ret", reg::ret);
 		this.definitions.defineVirtual("env_state", this::getState);
 		this.definitions.defineVirtual("env_laststate", this::getLastState);
 		this.definitions.defineVirtual("current_proc", opstack::peek);
@@ -316,6 +317,12 @@ public class SLEnvironment implements SLExceptionHandler {
 		public SLDictionary onLoad(SLEnvironment env, Object reserved) 
 		{
 			return this;
+		}
+		
+		@SLExport(name = "var", targs = {"vargs"})
+		public void var(SLEnvironment env, String[] args)
+		{
+			
 		}
 	}
 }
