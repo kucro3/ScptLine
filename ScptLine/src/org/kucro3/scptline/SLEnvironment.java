@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.HashMap;
 
 import org.kucro3.ini.*;
+import org.kucro3.ref.Ref;
 import org.kucro3.scptline.anno.SLExport;
 import org.kucro3.scptline.dict.SLDictionary;
 import org.kucro3.scptline.dict.SLDictionaryCollection;
@@ -323,6 +324,42 @@ public class SLEnvironment implements SLExceptionHandler {
 		public void var(SLEnvironment env, String[] args)
 		{
 			
+		}
+		
+		@SLExport(name = "ifnum", targs = {"refvar"})
+		public boolean ifnum(SLEnvironment env, Ref ref)
+		{
+			return Ref.isNumber(ref);
+		}
+		
+		@SLExport(name = "ifbool", targs = {"refvar"})
+		public boolean ifbool(SLEnvironment env, Ref ref)
+		{
+			return Ref.isBool(ref);
+		}
+		
+		@SLExport(name = "ifobj", targs = {"refvar"})
+		public boolean ifobj(SLEnvironment env, Ref ref)
+		{
+			return Ref.isObject(ref);
+		}
+		
+		@SLExport(name = "ifstr", targs = {"refvar"})
+		public boolean ifstr(SLEnvironment env, Ref ref)
+		{
+			return Ref.isObject(ref) && ref.getType().equals(String.class);
+		}
+		
+		@SLExport(name = "ifdef", targs = {"varname"})
+		public boolean ifdef(SLEnvironment env, String name)
+		{
+			return env.getVarMap().defined(name);
+		}
+		
+		@SLExport(name = "ifndef")
+		public boolean ifndef(SLEnvironment env, String name)
+		{
+			return !env.getVarMap().defined(name);
 		}
 	}
 }

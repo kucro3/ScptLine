@@ -4,6 +4,8 @@ import java.util.Map;
 import java.util.HashMap;
 
 import org.kucro3.lambda.LambdaObject;
+import org.kucro3.lambda.LambdaObjectSP;
+import org.kucro3.lambda.LambdaVoidSP;
 import org.kucro3.ref.*;
 import org.kucro3.scptline.SLEnvironment.SLEnvState;
 
@@ -44,7 +46,7 @@ public class SLDefinitionMap implements SLObject {
 		if(requireCheck())
 			this.checkName(name);
 		this.checkDuplication(name);
-		map.put(name, new RefObject(wrap(obj)));
+		map.put(name, new RefObject(obj));
 		return this;
 	}
 	
@@ -55,7 +57,7 @@ public class SLDefinitionMap implements SLObject {
 	
 	public Object get(String name)
 	{
-		return unwrap(get0(name));
+		return get0(name);
 	}
 	
 	final Object get0(String name)
@@ -66,32 +68,74 @@ public class SLDefinitionMap implements SLObject {
 		return ref.get();
 	}
 	
-	static Object unwrap(Object obj)
+	static Ref wrapObject(Object obj)
 	{
-		if(obj == NULL)
-			return null;
-		return obj;
+		return new RefObject(obj);
 	}
 	
-	static Object wrap(Object obj)
+	public boolean set(String name, Object obj, LambdaObjectSP<Ref, Object> func)
 	{
-		if(obj == null)
-			return NULL;
-		return obj;
+		if(map.get(name) == null)
+			return false;
+		map.put(name, func.function(obj));
+		return true;
 	}
 	
-	public boolean set(String name, Object obj)
+	public <T extends Ref> void operate(String name, LambdaObjectSP<T, Ref> func,
+			LambdaObjectSP<Boolean, Ref> type)
+	{
+		Ref ref = operate0(name, type);
+		if(func.function(ref) != ref)
+			map.put(name, ref);
+	}
+	
+	public void operate(String name, LambdaVoidSP<Ref> func,
+			LambdaObjectSP<Boolean, Ref> type)
+	{
+		func.function(operate0(name, type));
+	}
+	
+	private final Ref operate0(String name, LambdaObjectSP<Boolean, Ref> type)
 	{
 		Ref ref;
 		if((ref = map.get(name)) == null)
-			return false;
-		ref.set(wrap(obj));
-		return true;
+			throw SLDefinitionException.newVarUndefined(env, name);
+		if(!type.function(ref))
+			throw SLDefinitionException.newInvalidOperation(env, ref.getRefType());
+		return ref;
+	}
+	
+	static Ref wrapNumber(Object obj)
+	{
+		Number number = (Number) obj;
+		if(number == null)
+			number = (int)0;
+		return new RefNumber(number);
+	}
+	
+	static Ref wrapBool(Object obj)
+	{
+		Boolean b = (Boolean) obj;
+		if(b == null)
+			b = false;
+		return new RefBoolean(b);
+	}
+	
+	public void putNumber(String name, Number obj)
+	{
+		if(!set(name, obj, SLDefinitionMap::wrapNumber))
+			throw SLDefinitionException.newVarUndefined(env, name);
+	}
+	
+	public void putBool(String name, Boolean obj)
+	{
+		if(!set(name, obj, SLDefinitionMap::wrapBool))
+			throw SLDefinitionException.newVarUndefined(env, name);
 	}
 	
 	public void put(String name, Object obj)
 	{
-		if(!set(name, obj))
+		if(!set(name, obj, SLDefinitionMap::wrapObject))
 			throw SLDefinitionException.newVarUndefined(env, name);
 	}
 	
@@ -152,8 +196,6 @@ public class SLDefinitionMap implements SLObject {
 			throw SLDefinitionException.newIllegalVarName(env, name);
 	}
 	
-	public static final Object NULL = new Object();
-	
 	private final Map<String, Ref> map;
 	
 	private final SLEnvironment env;
@@ -206,6 +248,13 @@ public class SLDefinitionMap implements SLObject {
 					String.format(MESSAGE_CONSTANT, name));
 		}
 		
+		public static SLDefinitionException newInvalidOperation(SLEnvironment env, int t)
+		{
+			throw new SLDefinitionException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_INVALID_OPERATION,
+					String.format(MESSAGE_INVALID_OPERATION, t));
+		}
+		
 		public static final String MESSAGE_UNDEFINED = "Undefined variable: %s";
 		
 		public static final String MESSAGE_DEFINITION_DUPLICATED = "Variable redefinition: %s";
@@ -213,6 +262,8 @@ public class SLDefinitionMap implements SLObject {
 		public static final String MESSAGE_ILLEGAL_NAME = "Illegal variable name: %s";
 		
 		public static final String MESSAGE_CONSTANT = "Constant variable: %s";
+		
+		public static final String MESSAGE_INVALID_OPERATION = "Invalid operation on type: %d(%s)";
 		
 		public static final String DESCRIPTION = "An exception occurred in definition pool.";
 	}

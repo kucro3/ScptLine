@@ -15,6 +15,9 @@ public enum SLMethodParam {
 	L_OBJECT("lobj"),
 	L_STRING("lstr"),
 	
+	R_VAR("refvar"),
+	R_VARNAME("varname"),
+	
 	T_OBJECT("tobj"),
 	
 	V_ARGS("vargs");

@@ -1,8 +1,12 @@
 package org.kucro3.scptline.opstack;
 
+import java.util.Map;
 import java.util.EnumMap;
+import java.util.HashMap;
 
 import org.kucro3.fastinstanceof.InstanceProvider;
+import org.kucro3.lambda.LambdaObjectSP;
+import org.kucro3.lambda.LambdaVoidSP;
 import org.kucro3.ref.Ref;
 import org.kucro3.scptline.InternalError;
 import org.kucro3.scptline.SLAbstractParser;
@@ -12,6 +16,8 @@ import org.kucro3.scptline.anno.SLLimited;
 import org.kucro3.scptline.dict.SLMethodLoaded;
 import org.kucro3.scptline.opstack.SLMethodParam.SLResolvedParam;
 import org.kucro3.scptline.opstack.SLProcEngine.ParamParsers.*;
+
+import static org.kucro3.scptline.opstack.SLProcEngine.ParserContainer.*;
 
 @SLLimited // Limited runtime object, caller env sensitive
 public class SLProcEngine extends SLHandler {
@@ -153,7 +159,10 @@ public class SLProcEngine extends SLHandler {
 		
 		Object rt = mloaded.invoke(objs);
 		if(mloaded.getReturnType() != Void.class)
-			env.getRegister().ret(rt);
+			if(mloaded.getReturnType() != boolean.class)
+				env.getRegister().ret(rt);
+			else
+				env.getRegister().setPcBool((boolean)rt);
 		return true;
 	}
 	
@@ -169,16 +178,16 @@ public class SLProcEngine extends SLHandler {
 	
 	static {
 		EnumMap<SLMethodParam, ParamParsers> map = new EnumMap<>(SLMethodParam.class);
-		map.put(SLMethodParam.BYTE, new __Byte());
-		map.put(SLMethodParam.L_OBJECT, new _LObject());
-		map.put(SLMethodParam.L_STRING, new _LString());
-		map.put(SLMethodParam.N_DOUBLE, new _NDouble());
-		map.put(SLMethodParam.N_FLOAT, new _NFloat());
-		map.put(SLMethodParam.N_INT, new _NInt());
-		map.put(SLMethodParam.N_LONG, new _NLong());
-		map.put(SLMethodParam.N_SHORT, new _NShort());
-		map.put(SLMethodParam.T_OBJECT, new _TObject());
-		map.put(SLMethodParam.V_ARGS, new _VArgs());
+		map.put(SLMethodParam.BYTE, _BYTE = new __Byte());
+		map.put(SLMethodParam.L_OBJECT, LOBJECT = new _LObject());
+		map.put(SLMethodParam.L_STRING, LSTRING = new _LString());
+		map.put(SLMethodParam.N_DOUBLE, NDOUBLE = new _NDouble());
+		map.put(SLMethodParam.N_FLOAT, NFLOAT = new _NFloat());
+		map.put(SLMethodParam.N_INT, NINT = new _NInt());
+		map.put(SLMethodParam.N_LONG, NLONG = new _NLong());
+		map.put(SLMethodParam.N_SHORT, NSHORT = new _NShort());
+		map.put(SLMethodParam.T_OBJECT, TOBJECT = new _TObject());
+		map.put(SLMethodParam.V_ARGS, VARGS = new _VArgs());
 		parsers = map;
 	}
 	
@@ -246,6 +255,22 @@ public class SLProcEngine extends SLHandler {
 		public static final String DESCRIPTION = "An exception occurred in proc engine(handler).";
 	}
 	
+	static class ParserContainer
+	{
+		static ParamParsers
+			_BYTE,
+			LOBJECT,
+			LSTRING,
+			NDOUBLE,
+			NFLOAT,
+			NINT,
+			NLONG,
+			NSHORT,
+			TOBJECT,
+			VARGS,
+			RVAR;
+	}
+	
 	class SLProcParser extends SLAbstractParser
 	{
 		SLProcParser()
@@ -293,6 +318,42 @@ public class SLProcEngine extends SLHandler {
 			}
 		}
 		
+		static class _RVarname implements ParamParsers
+		{
+			@Override
+			public Object parse(SLProcEngine self, int current, String[] line, int[] used)
+			{
+				String var = line[current];
+				if(var.charAt(0) != '$')
+					throw SLProcEngineException.newIllegalArgument(self.env, 
+							override(), var);
+				return var.substring(1);
+			}
+			
+			protected SLMethodParam override()
+			{
+				return SLMethodParam.R_VARNAME;
+			}
+		}
+		
+		static class _RVar extends _RVarname
+		{
+			@Override
+			public Object parse(SLProcEngine self, int current, String[] line, int[] used)
+			{
+				Ref ref = self.env.getVarMap()
+						.requireRef((String)super.parse(self, current, line, used));
+				used[0] = 1;
+				return ref;
+			}
+			
+			@Override
+			protected SLMethodParam override()
+			{
+				return SLMethodParam.R_VAR;
+			}
+		}
+		
 		static class _LObject implements ParamParsers
 		{
 			@Override
@@ -329,10 +390,6 @@ public class SLProcEngine extends SLHandler {
 		
 		static class _LString implements ParamParsers
 		{
-			static final int CONVERTING = 1;
-			
-			static final int NORMAL = 0;
-			
 			@Override
 			public Object parse(SLProcEngine self, int current, String[] line, int[] used)
 			{
@@ -387,6 +444,10 @@ public class SLProcEngine extends SLHandler {
 					used[0] = count;
 				}
 			}
+			
+			static final int CONVERTING = 1;
+			
+			static final int NORMAL = 0;
 		}
 		
 		static class _TObject extends _LObject implements ParamParsers
@@ -505,6 +566,7 @@ public class SLProcEngine extends SLHandler {
 				super('!');
 			}
 			
+			@Override
 			int handle(SLProcEngine self, String[] preprocessed)
 			{
 				if(!self.env.getRegister().pcBool())
@@ -520,12 +582,41 @@ public class SLProcEngine extends SLHandler {
 				super('?');
 			}
 			
+			@Override
 			int handle(SLProcEngine self, String[] preprocessed)
 			{
 				if(self.env.getRegister().pcBool())
 					return ABORTED;
 				return PASSED;
 			}
+		}
+		
+		public static class _0x24 /* $ */ extends Prefix
+		{
+			_0x24()
+			{
+				super('$');
+			}
+			
+			@Override
+			int handle(SLProcEngine self, String[] preprocessed)
+			{
+				String // ->
+					varname = preprocessed[0],
+					expression = preprocessed[1];
+				return DELEGATED;
+			}
+			
+			static {
+				LambdaObjectSP<Boolean, Ref> lambda_isNumber = Ref::isNumber;
+ 			
+				Map<String, LambdaVoidSP<Ref>> _num_selfops = new HashMap<>();
+				
+				num_selfops = _num_selfops;
+				
+			}
+			
+			private static final Map<String, LambdaVoidSP<Ref>> num_selfops;
 		}
 		
 		public static Prefix index(char c)
@@ -538,6 +629,7 @@ public class SLProcEngine extends SLHandler {
 		public static void init()
 		{
 			new _0x21();
+			new _0x24();
 			new _0x63();
 		}
 		
@@ -553,5 +645,15 @@ public class SLProcEngine extends SLHandler {
 		public static final int DELEGATED = 2;
 		
 		public static final int PASSED = 1;
+	}
+	
+	public static class VariableParser
+	{
+		public static void resolve(SLProcEngine self, String[] args)
+		{
+			
+		}
+		
+		public static final String MODIFIER_CONST = "const";
 	}
 }
