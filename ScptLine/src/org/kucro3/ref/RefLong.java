@@ -27,7 +27,7 @@ public class RefLong extends Ref {
 	@Override
 	public void set(Object obj)
 	{
-		this.ref = (Long)obj;
+		this.ref = ((Number)obj).longValue();
 	}
 	
 	public long ref;

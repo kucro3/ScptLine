@@ -5,9 +5,8 @@ import java.util.EnumMap;
 import java.util.HashMap;
 
 import org.kucro3.fastinstanceof.InstanceProvider;
-import org.kucro3.lambda.LambdaObjectSP;
-import org.kucro3.lambda.LambdaVoidSP;
-import org.kucro3.ref.Ref;
+import org.kucro3.lambda.LambdaObject;
+import org.kucro3.ref.*;
 import org.kucro3.scptline.InternalError;
 import org.kucro3.scptline.SLAbstractParser;
 import org.kucro3.scptline.SLEnvironment;
@@ -18,6 +17,7 @@ import org.kucro3.scptline.opstack.SLMethodParam.SLResolvedParam;
 import org.kucro3.scptline.opstack.SLProcEngine.ParamParsers.*;
 
 import static org.kucro3.scptline.opstack.SLProcEngine.ParserContainer.*;
+import static org.kucro3.scptline.opstack.SLProcEngine.VarTypes.*;
 
 @SLLimited // Limited runtime object, caller env sensitive
 public class SLProcEngine extends SLHandler {
@@ -246,11 +246,78 @@ public class SLProcEngine extends SLHandler {
 							prefix));
 		}
 		
+		public static SLProcEngineException newVarNotNumber(SLEnvironment env,
+				String varname)
+		{
+			return new SLProcEngineException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_VARIABLE_NOT_NUMBER,
+					String.format(MESSAGE_VARIABLE_NOT_NUMBER, varname));
+		}
+		
+		public static SLProcEngineException newNotEnoughArguments(SLEnvironment env)
+		{
+			return new SLProcEngineException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_NOT_ENOUGH_ARGUMENTS,
+					MESSAGE_NOT_ENOUGH_ARGUMENTS);
+		}
+		
+		public static SLProcEngineException newSyntaxError(SLEnvironment env)
+		{
+			return new SLProcEngineException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_SYNTAX_ERROR,
+					MESSAGE_SYNTAX_ERROR);
+		}
+		
+		public static SLProcEngineException newUnknownVarType(SLEnvironment env,
+				String type)
+		{
+			return new SLProcEngineException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_UNKNOWN_VAR_TYPE,
+					String.format(MESSAGE_UNKNOWN_VAR_TYPE, type));
+		}
+		
+		public static SLProcEngineException newUnknownOperator(SLEnvironment env,
+				String operator)
+		{
+			return new SLProcEngineException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_UNKNOWN_OPERATOR,
+					String.format(MESSAGE_UNKNOWN_OPERATOR, operator));
+		}
+		
+		public static SLProcEngineException newVarNotBooleanValue(SLEnvironment env,
+				String varname)
+		{
+			return new SLProcEngineException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_VARIABLE_NOT_BOOLEAN,
+					String.format(MESSAGE_VARIABLE_NOT_BOOLEAN, varname));
+		}
+		
+		public static SLProcEngineException newTooManyArguments(SLEnvironment env)
+		{
+			return new SLProcEngineException(env, SLExceptionLevel.INTERRUPT,
+					MESSAGE_TOO_MANY_ARGUMENTS,
+					MESSAGE_TOO_MANY_ARGUMENTS);
+		}
+		
+		public static final String MESSAGE_UNKNOWN_OPERATOR = "Unknown operator: %s";
+		
+		public static final String MESSAGE_SYNTAX_ERROR = "Syntax error";
+		
+		public static final String MESSAGE_UNKNOWN_VAR_TYPE = "Unknown variable type: %s";
+		
+		public static final String MESSAGE_NOT_ENOUGH_ARGUMENTS = "Not enought arguments.";
+		
 		public static final String MESSAGE_INVALID_PREFIX = "Invalid or not prefix: %s";
 		
 		public static final String MESSAGE_ILLEGAL_ARGUMENT = "Illegal Argument (%s): %s";
 		
 		public static final String MESSAGE_CLASS_CAST = "%s cannot be cast to %s";
+		
+		public static final String MESSAGE_VARIABLE_NOT_NUMBER = "Variable \"%s\" is not a number";
+		
+		public static final String MESSAGE_VARIABLE_NOT_BOOLEAN = "Variable \"%s\" is not a boolean value";
+		
+		public static final String MESSAGE_TOO_MANY_ARGUMENTS = "Too many arguments";
 		
 		public static final String DESCRIPTION = "An exception occurred in proc engine(handler).";
 	}
@@ -604,19 +671,159 @@ public class SLProcEngine extends SLHandler {
 				String // ->
 					varname = preprocessed[0],
 					expression = preprocessed[1];
+				String[] exps = expression.split(" ");
+				Ref ref = self.env.getVarMap().requireRef(varname);
+				if(exps.length == 0)
+					throw SLProcEngineException.newNotEnoughArguments(self.env);
+				int i = 0;
+				
+				String type;
+				if(Character.isLetter((type = exps[i]).charAt(0)))
+				{
+					LambdaObject<Ref> constructor = consts.get(exps[i]);
+					if(constructor == null)
+						throw SLProcEngineException.newUnknownVarType(self.env, type);
+					Ref con = constructor.function();
+					Object obj = ref.get();
+					if(type.equals(T_STRING))
+						obj = obj.toString();
+					else if(Ref.isNumber(con))
+						obj = toNumber(self, ref, varname, type);
+					else if(Ref.isBool(con))
+						obj = toBool(self, ref, varname);
+					else;
+					con.set(obj);
+					ref = con;
+					i++;
+				}
+				
+				if(i < exps.length)
+					if(Ref.isNumber(ref))
+					{
+						
+					}
+					else if(Ref.isObject(ref))
+					{
+						
+					}
+					else if(Ref.isBool(ref))
+						ref.set(parseExpressionBool(self, exps, i, ref));
+					else
+						InternalError.ShouldNotReachHere();
+				else;
+				self.env.getVarMap().putRef(varname, ref);
+				
 				return DELEGATED;
 			}
 			
-			static {
-				LambdaObjectSP<Boolean, Ref> lambda_isNumber = Ref::isNumber;
- 			
-				Map<String, LambdaVoidSP<Ref>> _num_selfops = new HashMap<>();
-				
-				num_selfops = _num_selfops;
-				
+			private static Object toBool(SLProcEngine self, Ref ref, String varname)
+			{
+				Object obj = ref.get();
+				if(!Ref.isBool(ref))
+					if(Ref.isNumber(ref))
+						obj = ((Number)obj).doubleValue() != 0;
+					else
+						switch(obj.toString().toLowerCase())
+						{
+						case "true": obj = true; break;
+						case "false": obj = false; break;
+						default:
+							throw SLProcEngineException
+									.newVarNotBooleanValue(self.env, varname);
+						}
+				return obj;
 			}
 			
-			private static final Map<String, LambdaVoidSP<Ref>> num_selfops;
+			private static Object toNumber(SLProcEngine self, Ref ref, String varname, String type)
+			{
+				Object obj = ref.get();
+				ParamParsers numparser;
+				if(!Ref.isNumber(ref))
+					if((numparser = numparsers.get(type)) != null)
+						obj = numparser.parse(self, 0,
+								new String[] {obj.toString()}, unused);
+					else
+						InternalError.ShouldNotReachHere();
+				return obj;
+			}
+			
+			public static Object parseExpressionBool(SLProcEngine self, String[] exps, 
+					int current, Ref ref)
+			{
+				String operator;
+				if(current < exps.length)
+					switch(operator = exps[current])
+					{
+					case "=":
+						String varname;
+						if(current + 1 == exps.length)
+							throw SLProcEngineException.newNotEnoughArguments(self.env);
+						if(current + 2 == exps.length)
+						{
+							String exp = exps[current + 1];
+							if(exp.startsWith("$"))
+								ref = self.env.getVarMap().requireRef(varname = exp.substring(1));
+							else
+							{
+								ref = new RefObject(exp);
+								varname = new StringBuilder("argument: ").append(exp).toString();
+							}
+							return toBool(self, ref, varname);
+						}
+						else
+						{
+							// unsupported
+							throw SLProcEngineException.newTooManyArguments(self.env);
+						}
+					case "!":
+						return !((boolean)ref.get());
+					default:
+						throw SLProcEngineException.newUnknownOperator(self.env, operator);
+					}
+				throw SLProcEngineException.newNotEnoughArguments(self.env);
+			}
+			
+			static {
+				Map<String, Numbers.LambdaFunction> _numfuncs = new HashMap<>();
+				_numfuncs.put("+=", Numbers::add);
+				_numfuncs.put("-=", Numbers::minus);
+				_numfuncs.put("*=", Numbers::multiply);
+				_numfuncs.put("/=", Numbers::divide);
+				_numfuncs.put("%=", Numbers::mod);
+				numfuncs = _numfuncs;
+				
+				Map<String, LambdaObject<Ref>> _consts = new HashMap<>();
+				_consts.put(T_BOOLEAN, RefBoolean::new);
+				_consts.put(T_BYTE, RefByte::new);
+				_consts.put(T_CHAR, RefChar::new);
+				_consts.put(T_DOUBLE, RefDouble::new);
+				_consts.put(T_FLOAT, RefFloat::new);
+				_consts.put(T_INT, RefInt::new);
+				_consts.put(T_LONG, RefLong::new);
+				_consts.put(T_OBJECT, RefObject::new);
+				_consts.put(T_SHORT, RefShort::new);
+				_consts.put(T_STRING, RefObject::new);
+				consts = _consts;
+				
+				Map<String, ParamParsers> _numparsers = new HashMap<>();
+				_numparsers.put(T_BYTE, ParserContainer._BYTE);
+				_numparsers.put(T_DOUBLE, ParserContainer.NDOUBLE);
+				_numparsers.put(T_FLOAT, ParserContainer.NFLOAT);
+				_numparsers.put(T_INT, ParserContainer.NINT);
+				_numparsers.put(T_LONG, ParserContainer.NLONG);
+				_numparsers.put(T_SHORT, ParserContainer.NSHORT);
+				numparsers = _numparsers;
+			}
+			
+			private static final RefInt ONE = new RefInt(1);
+			
+			private static final int[] unused = new int[1];
+			
+			private static final Map<String, LambdaObject<Ref>> consts;
+			
+			private static final Map<String, ParamParsers> numparsers;
+			
+			private static final Map<String, Numbers.LambdaFunction> numfuncs;
 		}
 		
 		public static Prefix index(char c)
@@ -645,6 +852,30 @@ public class SLProcEngine extends SLHandler {
 		public static final int DELEGATED = 2;
 		
 		public static final int PASSED = 1;
+	}
+	
+	public static final class VarTypes
+	{
+		
+		static final String T_BOOLEAN = "bool";
+		
+		static final String T_CHAR = "char";
+		
+		static final String T_DOUBLE = "double";
+		
+		static final String T_FLOAT = "float";
+		
+		static final String T_INT = "int";
+		
+		static final String T_LONG = "long";
+		
+		static final String T_SHORT = "short";
+		
+		static final String T_BYTE = "byte";
+		
+		static final String T_OBJECT = "obj";
+		
+		static final String T_STRING = "string";
 	}
 	
 	public static class VariableParser

@@ -355,11 +355,5 @@ public class SLEnvironment implements SLExceptionHandler {
 		{
 			return env.getVarMap().defined(name);
 		}
-		
-		@SLExport(name = "ifndef")
-		public boolean ifndef(SLEnvironment env, String name)
-		{
-			return !env.getVarMap().defined(name);
-		}
 	}
 }

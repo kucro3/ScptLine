@@ -27,7 +27,7 @@ public class RefFloat extends Ref {
 	@Override
 	public void set(Object obj)
 	{
-		this.ref = (Float)obj;
+		this.ref = ((Number)obj).floatValue();
 	}
 	
 	public float ref;

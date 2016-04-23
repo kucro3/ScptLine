@@ -27,7 +27,7 @@ public class RefDouble extends Ref {
 	@Override
 	public void set(Object obj)
 	{
-		this.ref = (Double)obj;
+		this.ref = ((Number)obj).doubleValue();
 	}
 	
 	public double ref;

@@ -27,7 +27,7 @@ public class RefInt extends Ref {
 	@Override
 	public void set(Object obj)
 	{
-		this.ref = (Integer)obj;
+		this.ref = ((Number)obj).intValue();
 	}
 	
 	public int ref;

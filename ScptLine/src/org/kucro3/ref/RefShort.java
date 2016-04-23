@@ -27,7 +27,7 @@ public class RefShort extends Ref {
 	@Override
 	public void set(Object obj)
 	{
-		this.ref = (Short)ref;
+		this.ref = ((Number)ref).shortValue();
 	}
 	
 	public short ref;

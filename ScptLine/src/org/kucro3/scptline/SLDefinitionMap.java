@@ -2,6 +2,7 @@ package org.kucro3.scptline;
 
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Objects;
 
 import org.kucro3.lambda.LambdaObject;
 import org.kucro3.lambda.LambdaObjectSP;
@@ -137,6 +138,12 @@ public class SLDefinitionMap implements SLObject {
 	{
 		if(!set(name, obj, SLDefinitionMap::wrapObject))
 			throw SLDefinitionException.newVarUndefined(env, name);
+	}
+	
+	public void putRef(String name, Ref ref)
+	{
+		Objects.requireNonNull(ref);
+		map.put(name, ref);
 	}
 	
 	public Object require(String name)

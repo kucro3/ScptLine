@@ -17,14 +17,15 @@ public class Main {
 			SLEnvironment env = new SLEnvironment(profile);
 			env.load(Test.class);
 			env.getHandlerStack().add(new SLProcEngine(env));
+			env.getVarMap().define("bool", 1);
 			env.execute(new String[] {
-				"printobj $env",
-				"printobj $env_state",
-				"printobj $env_laststate",
-				"printobj $systime_ms",
-				"print \"Hello world!\"",
-				"printobj $ret",
-				":var"
+				"printobj $bool",
+				"$bool int",
+				"$bool bool",
+				"$bool !",
+				"printobj $bool",
+				"$bool = true",
+				"printobj $bool",
 			});
 		} finally {
 		}

@@ -27,7 +27,7 @@ public class RefByte extends Ref {
 	@Override
 	public void set(Object obj)
 	{
-		this.ref = (Byte)obj;
+		this.ref = ((Number)obj).byteValue();
 	}
 	
 	public byte ref;
